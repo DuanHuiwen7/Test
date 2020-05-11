@@ -1,80 +1,126 @@
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
 public class EmojiFilter {
+
+    private static String regex = "[0-9a-zA-Z\\u4e00-\\u9fa5_，。；！？!?,.;-]*";
     /**
-     * 检测是否有emoji字符
+     * 过滤emoji字符
      *
-     * @param source
+     * @param str
      * @return 一旦含有就抛出
      */
-    public static boolean containsEmoji(String source) {
-        if (StringUtils.isBlank(source)) {
+    public static String filterEmoji(String str) {
+        if (StringUtils.isBlank(str)) {
+            return str;
+        }
+        StringBuilder sb = null;
+        for (char codePoint : str.toCharArray()) {
+            if (!isEmojiCharacter(codePoint)) {
+                if (sb == null) {
+                    sb = new StringBuilder();
+                }
+                sb.append(codePoint);
+            }
+        }
+        return sb == null ? str : sb.toString();
+    }
+
+    /**
+     * 是否包含特殊符号或字符
+     *
+     * @param codePoint
+     * @return 如果不包含 返回false,包含 则返回true
+     */
+    public static boolean isEmojiCharacter(char codePoint) {
+        return !((codePoint == 0x0) || (codePoint == 0x9) || (codePoint == 0xA)
+                || (codePoint == 0xD)
+                || ((codePoint >= 0x20) && (codePoint <= 0xD7FF))
+                || ((codePoint >= 0xE000) && (codePoint <= 0xFFFD))
+                || ((codePoint >= 0x10000) && (codePoint <= 0x10FFFF)));
+    }
+
+    public static String filterOffUtf8Mb4(String text) {
+        try {
+            byte[] bytes = text.getBytes("UTF-8");
+            ByteBuffer buffer = ByteBuffer.allocate(bytes.length);
+            int i = 0;
+            while (i < bytes.length) {
+                short b = bytes[i];
+                if (b > 0) {
+                    buffer.put(bytes[i++]);
+                    continue;
+                }
+                b += 256;
+                if ((b ^ 0xC0) >> 4 == 0) {
+                    buffer.put(bytes, i, 2);
+                    i += 2;
+                } else if ((b ^ 0xE0) >> 4 == 0) {
+                    buffer.put(bytes, i, 3);
+                    i += 3;
+                } else if ((b ^ 0xF0) >> 4 == 0) {
+                    i += 4;
+                }
+            }
+            buffer.flip();
+            return new String(buffer.array(), "utf-8").trim();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return text;
+    }
+
+    public static boolean containUtf8mb4(String str) {
+        if (null == str) {
             return false;
         }
-
-        int len = source.length();
-
-        for (int i = 0; i < len; i++) {
-            char codePoint = source.charAt(i);
-
-            if (isEmojiCharacter(codePoint)) {
-                //do nothing，判断到了这里表明，确认有表情字符
+        final int LAST_BMP = 0xFFFF;
+        for (int i = 0; i < str.length(); i++) {
+            System.out.println(str.charAt(i) + "  " + str.codePointAt(i));
+            System.out.println("i = " + i);
+            if (str.codePointAt(i) >= LAST_BMP) {
                 return true;
             }
         }
-
         return false;
     }
 
-    private static boolean isEmojiCharacter(char codePoint) {
-        return (codePoint == 0x0) ||
-                (codePoint == 0x9) ||
-                (codePoint == 0xA) ||
-                (codePoint == 0xD) ||
-                ((codePoint >= 0x20) && (codePoint <= 0xD7FF)) ||
-                ((codePoint >= 0xE000) && (codePoint <= 0xFFFD)) ||
-                ((codePoint >= 0x10000) && (codePoint <= 0x10FFFF));
+    public static List<String> findUtf8mb4List(String str) {
+        List<String> result = new ArrayList<String>();
+        if (null == str) {
+            return result;
+        }
+        final int LAST_BMP = 0xFFFF;
+        for (int i = 0; i < str.length(); i++) {
+            if (str.codePointAt(i) >= LAST_BMP) {
+                result.add(new StringBuilder().appendCodePoint(str.codePointAt(i)).toString());
+            }
+            System.out.println(str.codePointAt(i));
+            System.out.println("s  = " + new StringBuilder().appendCodePoint(str.codePointAt(i)).toString());
+        }
+        int index= 0;
+        for (String s : str.split("")){
+            System.out.println(s.codePointAt(0));
+            System.out.println("str.split =  " + s + index ++);
+        }
+        return result;
     }
 
-    /**
-     * 过滤emoji 或者 其他非文字类型的字符
-     *
-     * @param source
-     * @return
-     */
-    public static String filterEmoji(String source) {
-
-        if (!containsEmoji(source)) {
-            return source;//如果不包含，直接返回
+    public static String replaceAllUtf8mb4(String str) {
+        if (null == str) {
+            return "";
         }
-        //到这里铁定包含
-        StringBuilder buf = null;
-
-        int len = source.length();
-
-        for (int i = 0; i < len; i++) {
-            char codePoint = source.charAt(i);
-
-            if (isEmojiCharacter(codePoint)) {
-                if (buf == null) {
-                    buf = new StringBuilder(source.length());
-                }
-
-                buf.append(codePoint);
-            } else {
+        List<String> utf8mb4;
+        if (CollectionUtils.isNotEmpty(utf8mb4 = findUtf8mb4List(str))) {
+            for (String s : utf8mb4) {
+                str = str.replaceAll(s,"");
             }
         }
-
-        if (buf == null) {
-            return source;//如果没有找到 emoji表情，则返回源字符串
-        } else {
-            if (buf.length() == len) {//这里的意义在于尽可能少的toString，因为会重新生成字符串
-                buf = null;
-                return source;
-            } else {
-                return buf.toString();
-            }
-        }
-
+        return str;
     }
+
 }
