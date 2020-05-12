@@ -709,46 +709,98 @@ public class Hello {
      * 例如，字符串"aaa"与模式"a.a"和"ab*ac*a"匹配，但与"aa.a"和"ab*a"均不匹配。
      */
     public boolean isMatch(String s, String p) {
-        boolean flag = true;
+        boolean flag = false;
         String[] strs = s.split("");
         String[] ps = p.split("");
         int index = 0;
-        for (int i = 0; i < strs.length; i++) {
+        int i = 0;
+        while (i < s.length() && index < p.length()) {
             String str = strs[i];
             String pStr = ps[index];
             if (!str.equals(pStr)) {
                 if (pStr.equals(".")) {
+                    i++;
                     index++;
                 } else if (pStr.equals("*")) {
-                    if (index == 0){
-                        flag = false;
+                    if (index == 0) {
                         break;
                     }
                     String temp = ps[index - 1];
-
+                    if (temp.equals(str)) {
+                        i++;
+                    } else {
+                        if (temp.equals(".")) {
+                            flag = true;
+                            break;
+                        }
+                        index++;
+                    }
                 } else {
-
+                    if (index == p.length() - 1) {
+                        break;
+                    }
+                    String temp = ps[index + 1];
+                    if ("*".equals(temp)) {
+                        index++;
+                    } else {
+                        break;
+                    }
                 }
             } else {
+                i++;
                 index++;
             }
         }
         return flag;
     }
 
+    public boolean isMatch2(String s, String p) {
+        boolean flag = false;
+
+        return flag;
+    }
+
+    public boolean isMatch1(String A, String B) {
+        int n = A.length();
+        int m = B.length();
+        boolean[][] f = new boolean[n + 1][m + 1];
+
+        for (int i = 0; i <= n; i++) {
+            for (int j = 0; j <= m; j++) {
+                //分成空正则和非空正则两种
+                if (j == 0) {
+                    f[i][j] = i == 0;
+                } else {
+                    //非空正则分为两种情况 * 和 非*
+                    if (B.charAt(j - 1) != '*') {
+                        if (i > 0 && (A.charAt(i - 1) == B.charAt(j - 1) || B.charAt(j - 1) == '.')) {
+                            f[i][j] = f[i - 1][j - 1];
+                        }
+                    } else {
+                        //碰到 * 了，分为看和不看两种情况
+                        //不看
+                        if (j >= 2) {
+                            f[i][j] |= f[i][j - 2];
+                        }
+                        //看
+                        if (i >= 1 && j >= 2 && (A.charAt(i - 1) == B.charAt(j - 2) || B.charAt(j - 2) == '.')) {
+                            f[i][j] |= f[i - 1][j];
+                        }
+                    }
+                }
+            }
+        }
+        return f[n][m];
+    }
+
     public static void testQueue() {
 
         Hello h = new Hello();
-        String s = "";
-        int i = 0;
-        while (i < 88){
-            s += "a";
-            i++;
-        }
-        if (s.length() > 64){
-            s = s.substring(0,64);
-        }
-        System.out.println(s.length());
+        String s = "aaa";
+        String p = "a.aa";
+
+        System.out.println(h.isMatch(s, p));
+
     }
 
     public static StringBuilder fixWDC(StringBuilder sbs) {
